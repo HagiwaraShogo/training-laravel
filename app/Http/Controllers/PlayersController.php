@@ -61,7 +61,30 @@ class PlayersController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        $id = Player::where('id', $id);
+        $status = [];
+
+        if($request->has('name'))
+            {
+                $status['name'] = $request->input('name');
+            }
+
+        if($request->has('hp'))
+            {
+                $status['hp'] = $request->input('hp');
+            }
+            
+        if($request->has('mp'))
+            {
+                $status['mp'] = $request->input('mp');
+            }
+
+        if($request->has('money'))
+            {
+                $status['money'] = $request->input('money');
+            }
+
+        $id->update($status);
     }
 
     /**
