@@ -95,7 +95,7 @@ class PlayersController extends Controller
      */
     public function destroy($id)
     {
-        //
+        Player::where('id', $id) -> delete();
     }
 
     /**
