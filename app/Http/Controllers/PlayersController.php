@@ -61,7 +61,6 @@ class PlayersController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
         $id = Player::where('id', $id);
         $status = [];
 
