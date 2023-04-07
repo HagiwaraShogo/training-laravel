@@ -18,7 +18,7 @@ class CreatePlayerItemsTable extends Migration
             $table->unsignedBigInteger('item_id')->comment("アイテムID");
             $table->integer('count')->comment("アイテムの個数");
 
-            $table->primary(['playerId', 'itemId']);
+            $table->primary(['player_id', 'item_id']);
         });
     }
 
