@@ -10,7 +10,12 @@ use Illuminate\Http\Response;
 
 class PlayerItemController extends Controller
 {
-    
+    // Hp,Mpの上限
+    const MAX_HP = 200;
+    const MAX_MP = 200;
+    // エラーコード
+    const ERRCODE = 400;
+
     public function add(Request $request, $id)
     {
         
@@ -40,94 +45,90 @@ class PlayerItemController extends Controller
     public function use(Request $request, $id)
     {
         //playerとitemのid
-        $all_id = PlayerItem::query()
+        $idData = PlayerItem::query()
         ->where(['player_id' => $id, 'item_id' => $request->input('itemId')]);
         // プレーヤー情報
-        $player = Player::query()->where('id', $all_id->value('player_id'));    // プレイヤーのid
+        $player = Player::query()->where('id', $idData->value('player_id'));    // プレイヤーのid
         $playerHp = $player->value('hp');   // プレイヤーのhp
         $playerMp = $player->value('mp');   // プレイヤーのmp
-        // Hp,Mpの上限
-        $MAX_HP = 200;
-        $MAX_MP = 200;
-        // エラーコード
-        $ERRCODE = 400;
+        
 
         // データがないもしくはアイテムがない場合エラーレスポンスを返す
-        if($all_id->doesntExist())
+        if($idData->doesntExist())
         {
-            return new Response('データがありません', $ERRCODE);
+            return new Response('データがありません', self::ERRCODE);
         }
-        if($all_id->value('count') <= 0)
+        if($idData->value('count') <= 0)
         {
-            return new Response('アイテムがありません', $ERRCODE);
+            return new Response('アイテムがありません', self::ERRCODE);
         }
 
         // アイテムの回復量
-        $itemValue = Item::query()->where('id', $all_id->value('item_id'))->value('value');
+        $itemValue = Item::query()->where('id', $idData->value('item_id'))->value('value');
         // アイテムの所持個数
-        $itemNum = $all_id->value('count');
+        $itemNum = $idData->value('count');
         // アイテムの使用個数
         $useNum = $request->input('count');
 
         if($itemNum < $useNum)
         {
-            return new Response('アイテムが足りません', $ERRCODE);
+            return new Response('アイテムが足りません', self::ERRCODE);
         }
 
         // HPかいふく薬
-        if($all_id->value('item_id') == 1)
+        if($idData->value('item_id') == 1)
         {
             // HPが上限の場合
-            if($playerHp >= $MAX_HP)
+            if($playerHp >= self::MAX_HP)
             {
-                return new Response('HPがMAXのため使用できません', $ERRCODE);
+                return new Response('HPがMAXのため使用できません', self::ERRCODE);
             }
 
             // アイテムを一個ずつ加算していく
             for($i = 0; $i < $useNum; $i++)
             {
                 $itemNum--;
-                if($playerHp + $itemValue < $MAX_HP)
+                if($playerHp + $itemValue < self::MAX_HP)
                 {
                     $playerHp += $itemValue;
                 }
                 else
                 {
-                    $playerHp =  $MAX_HP;
+                    $playerHp =  self::MAX_HP;
                     break;
                 }
             }
         }
         // MPかいふく薬
-        if($all_id->value('item_id') == 2)
+        if($idData->value('item_id') == 2)
         {
             // MPが上限の場合
-            if($playerMp >= $MAX_MP)
+            if($playerMp >= self::MAX_MP)
             {
-                return new Response('MPがMAXのため使用できません', $ERRCODE);
+                return new Response('MPがMAXのため使用できません', self::ERRCODE);
             }
 
              // アイテムを一個ずつ加算していく
             for($i = 0; $i < $useNum; $i++)
             {
                 $itemNum--;
-                if($playerMp + $itemValue < $MAX_MP)
+                if($playerMp + $itemValue < self::MAX_MP)
                 {
                     $playerMp += $itemValue;
                 }
                 else
                 {
-                    $playerMp =  $MAX_MP;
+                    $playerMp =  self::MAX_MP;
                     break;
                 }
             }
         }
 
         // データ更新処理
-        $all_id->update(["count" => $itemNum]);
+        $idData->update(["count" => $itemNum]);
         $player->update(['hp' => $playerHp, 'mp' => $playerMp]);
 
-        return new Response(['itemId' => $all_id->value('item_id'),
+        return new Response(['itemId' => $idData->value('item_id'),
         'count' => $itemNum,
         'player' => ['id' => $player->value('id'),
         'hp' => $playerHp,
