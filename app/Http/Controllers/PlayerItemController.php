@@ -143,6 +143,10 @@ class PlayerItemController extends Controller
     {
         // プレイヤーのid
         $playerId = Player::query() ->where('id', $id);
+        if($playerId->doesntExist())
+        {
+            return new Response('プレイヤーデータがありません', self::ERRCODE);
+        }
         // ガチャ回数
         $count = $request->input('count');
         // 所持金額
@@ -160,8 +164,8 @@ class PlayerItemController extends Controller
 
         // percentのカラムを取得
         $itemPercents = Item::query()->pluck('percent');
-        // アイテムのid
-        $itemId = 0;
+        // item_idのカラムを取得
+        $itemId = PlayerItem::query()->pluck('item_id');
         // 結果格納用
         $result = [];
         // 抽選を行いresultに結果を格納する
@@ -175,16 +179,15 @@ class PlayerItemController extends Controller
                 $totalPercent += $itemPercents[$j];
                 if($random <= $totalPercent)
                 {
-                    $itemId = $j+1;
                     // データがある場合
-                    if(array_key_exists($itemId, $result))
+                    if(array_key_exists($itemId[$j], $result))
                     {
-                        $result[$itemId] += 1;
+                        $result[$itemId[$j]] += 1;
                     }
                     // データがない場合
                     else
                     {
-                        $result[$itemId] = 1;
+                        $result[$itemId[$j]] = 1;
                     }
                     break;
                 }
@@ -193,35 +196,35 @@ class PlayerItemController extends Controller
 
         $resultResponse = [];
         // データの更新
-        for($i = 1; $i <= $itemPercents->count(); $i++)
+        for($i = 0; $i < $itemPercents->count(); $i++)
         {
             //playerとitemのid
             $idData = PlayerItem::query()
-            ->where(['player_id' => $id, 'item_id' => $i]);
+            ->where(['player_id' => $id, 'item_id' => $itemId[$i]]);
 
             // データがある場合は更新、ない場合はデータ追加
             if($idData->exists())
             {
-                if(array_key_exists($i, $result))
+                if(array_key_exists($itemId[$i], $result))
                 {
-                    $idData->update(['count'=>$idData->value('count') + $result[$i]]);
+                    $idData->update(['count'=>$idData->value('count') + $result[$itemId[$i]]]);
                 }
             }
             else
             {
                 PlayerItem::insert(
                     ['player_id' => $id,
-                    'item_id' => $i,
+                    'item_id' => $itemId[$i],
                     'count' => $result[$i]]);
             }
 
             // レスポンスで返す用
-            if(array_key_exists($i, $result))
+            if(array_key_exists($itemId[$i], $result))
             {
                 $data = 
                 [
-                    'itemId'=> $i,
-                    'count' => $result[$i]
+                    'itemId'=> $itemId[$i],
+                    'count' => $result[$itemId[$i]]
                 ];
                 array_push($resultResponse, $data);
             }
