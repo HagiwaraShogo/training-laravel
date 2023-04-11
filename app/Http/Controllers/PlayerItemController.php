@@ -15,7 +15,10 @@ class PlayerItemController extends Controller
     const MAX_MP = 200;
     // エラーコード
     const ERRCODE = 400;
+    // ガチャ一回分のお金
+    const GACHA_PRICE = 10;
 
+    // アイテムの所持
     public function add(Request $request, $id)
     {
         
@@ -42,6 +45,7 @@ class PlayerItemController extends Controller
             
     }
 
+    // アイテムの使用
     public function use(Request $request, $id)
     {
         //playerとitemのid
@@ -133,5 +137,118 @@ class PlayerItemController extends Controller
         'player' => ['id' => $player->value('id'),
         'hp' => $playerHp,
         'mp' => $playerMp,]]);
+    }
+
+    public function gacha(Request $request, $id)
+    {
+        // プレイヤーのid
+        $playerId = Player::query() ->where('id', $id);
+        if($playerId->doesntExist())
+        {
+            return new Response('プレイヤーデータがありません', self::ERRCODE);
+        }
+        // ガチャ回数
+        $count = $request->input('count');
+        // 所持金額
+        $money = $playerId->value('money');
+
+        // 残金確認
+        if($money < $count * self::GACHA_PRICE)
+        {
+            return new Response('お金が足りません', self::ERRCODE);
+        }
+
+        // 残金から回数分の金額を引く
+        $money -= $count * self::GACHA_PRICE;
+        $playerId->update(['money' => $money]);
+
+        // percentのカラムを取得
+        $itemPercents = Item::query()->pluck('percent');
+        // item_idのカラムを取得
+        $itemId = PlayerItem::query()->pluck('item_id');
+        // 結果格納用
+        $result = [];
+        // 抽選を行いresultに結果を格納する
+        for($i = 0; $i < $count; $i++)
+        {
+            // 1～100の中からランダムで取得
+            $random = mt_rand(1,100);
+            $totalPercent = 0;
+            for($j = 0; $j < $itemPercents->count(); $j++)
+            {
+                $totalPercent += $itemPercents[$j];
+                if($random <= $totalPercent)
+                {
+                    // データがある場合
+                    if(array_key_exists($itemId[$j], $result))
+                    {
+                        $result[$itemId[$j]] += 1;
+                    }
+                    // データがない場合
+                    else
+                    {
+                        $result[$itemId[$j]] = 1;
+                    }
+                    break;
+                }
+            }
+        }
+
+        $resultResponse = [];
+        // データの更新
+        for($i = 0; $i < $itemPercents->count(); $i++)
+        {
+            //playerとitemのid
+            $idData = PlayerItem::query()
+            ->where(['player_id' => $id, 'item_id' => $itemId[$i]]);
+
+            // データがある場合は更新、ない場合はデータ追加
+            if($idData->exists())
+            {
+                if(array_key_exists($itemId[$i], $result))
+                {
+                    $idData->update(['count'=>$idData->value('count') + $result[$itemId[$i]]]);
+                }
+            }
+            else
+            {
+                PlayerItem::insert(
+                    ['player_id' => $id,
+                    'item_id' => $itemId[$i],
+                    'count' => $result[$i]]);
+            }
+
+            // レスポンスで返す用
+            if(array_key_exists($itemId[$i], $result))
+            {
+                $data = 
+                [
+                    'itemId'=> $itemId[$i],
+                    'count' => $result[$itemId[$i]]
+                ];
+                array_push($resultResponse, $data);
+            }
+        }
+        
+        // レスポンスで返す用
+        $itemResponse = [];
+        $getPlayerItem = PlayerItem::query()->where('player_id',$id)->get();
+        foreach($getPlayerItem as $playerItem)
+        {
+            $data = 
+            [
+                'itemId'=> $playerItem->item_id,
+                'count' => $playerItem->count
+            ];
+            array_push($itemResponse,$data);
+        }
+
+        return new Response([
+            'results' => $resultResponse,
+            'player' => [
+                'money' => $money,
+                'items' => $itemResponse
+            ]
+        ]);
     }
 }
