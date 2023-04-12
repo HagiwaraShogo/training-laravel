@@ -22,22 +22,23 @@ class PlayerItemController extends Controller
     // アイテムの所持
     public function add(Request $request, $id)
     {
+        // トランザクション開始
+        DB::beginTransaction();
         try
         {
-            // トランザクション開始
-            DB::beginTransaction();
-
-            //playerとitemのidの取得とロック
-            $all_id = PlayerItem::query()
-            ->where(['player_id' => $id, 'item_id' => $request->input('itemId')])->lockForUpdate();
+            // プレイヤーのidをロックする
+            Player::find($id)->lockForUpdate();
+            //playerとitemのidの取得する
+            $idData = PlayerItem::query()
+            ->where(['player_id' => $id, 'item_id' => $request->input('itemId')]);
         
             // 追加するアイテムの個数を取得
             $num = $request->input('count');
         
             // 既にデータがある場合、個数分追加
-            if ($all_id->exists()) {
-                $num += $all_id->value('count');
-                $all_id->update(['count'=>$num]);
+            if ($idData->exists()) {
+                $num += $idData->value('count');
+                $idData->update(['count'=>$num]);
             }
             // データがない場合新しく追加
             else
@@ -68,13 +69,15 @@ class PlayerItemController extends Controller
     // アイテムの使用
     public function use(Request $request, $id)
     {
+        // トランザクション開始
+        DB::beginTransaction();
         try
         {
-            DB::beginTransaction();
-
-            //playerとitemのidの取得とロック
+            // プレイヤーのidをロックする
+            Player::find($id)->lockForUpdate();
+            //playerとitemのidの取得する
             $idData = PlayerItem::query()
-            ->where(['player_id' => $id, 'item_id' => $request->input('itemId')])->lockForUpdate();
+            ->where(['player_id' => $id, 'item_id' => $request->input('itemId')]);
             // プレーヤー情報
             $player = Player::query()->where('id', $idData->value('player_id'));    // プレイヤーのid
             $playerHp = $player->value('hp');   // プレイヤーのhp
@@ -178,12 +181,13 @@ class PlayerItemController extends Controller
 
     public function gacha(Request $request, $id)
     {
+        DB::beginTransaction();
         try
         {
-            DB::beginTransaction();
-
-            // プレイヤーのidを取得し、ロックする
-            $playerId = Player::query() ->where('id', $id)->lockForUpdate();
+            // プレイヤーのidをロックする
+            Player::query()->where('id', $id)->lockForUpdate();
+            // プレイヤーのidを取得する
+            $playerId = Player::query() ->where('id', $id);
 
             if($playerId->doesntExist())
             {
@@ -303,6 +307,5 @@ class PlayerItemController extends Controller
             return new Response(
                 $e->getMessage(), self::ERRCODE);
         }
-        
     }
 }
